@@ -1,127 +1,169 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-Hant-TW">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>2026 Nuclear Weapons Global Map</title>
+<title>全球核彈頭數量地圖</title>
 <style>
-    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2d1a0f; color: #e8d5c5; overflow: hidden; }
-    #map { width: 100vw; height: 100vh; position: relative; }
-    .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(45,26,15,0.85); padding: 14px 18px; border-radius: 8px; font-size: 12px; line-height: 1.6; backdrop-filter: blur(8px); }
-    .legend div { margin-bottom: 4px; display: flex; align-items: center; }
-    .legend span { width: 18px; height: 14px; flex-shrink: 0; margin-right: 8px; border-radius: 3px; }
-    .tooltip { position: absolute; width: 150px; background: #5b3a24; color: #fff; padding: 10px 12px; border-radius: 6px; pointer-events: none; font-size: 13px; line-height: 1.4; box-shadow: 0 4 12 rgba(0,0,0,.4); opacity: 0; transition: opacity .25s ease; z-index: 1000; }
-    .h1 { font-size: 28px; color: #c49c6a; text-align: center; margin: 20px 0 10px; letter-spacing: 3px; text-transform: uppercase; }
-    .subtitle { font-size: 14px; color: #a08060; text-align: center; margin-bottom: 30px; }
+  :root{
+    --frame:#0d0f12; --panel:#15181d; --line:#2a2f37; --ink:#e9e3d8; --mute:#8d939c;
+    --accent:#d4372c; --amber:#e0a34a;
+    --sea:#f2ece2; --land0:#ddd3c4; --border:#b8ab97;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--frame);color:var(--ink);
+    font-family:"Noto Sans TC","Microsoft JhengHei","PingFang TC",system-ui,sans-serif;
+    display:flex;flex-direction:column;min-height:100vh}
+  /* 頂部 HUD：不可能的任務式的機密檔案標頭 */
+  header{padding:14px 20px 10px;border-bottom:1px solid var(--line);
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;position:relative}
+  header::before{content:"";position:absolute;left:0;top:0;height:3px;width:100%;
+    background:linear-gradient(90deg,var(--accent) 0 18%,transparent 18%)}
+  .tag{font:600 11px/1 ui-monospace,Consolas,monospace;letter-spacing:.18em;color:var(--accent);
+    border:1px solid var(--accent);padding:4px 7px}
+  h1{margin:0;font-size:clamp(18px,3.2vw,28px);font-weight:700;letter-spacing:.06em}
+  .meta{font:12px/1.5 ui-monospace,Consolas,monospace;color:var(--mute);width:100%}
+  .meta b{color:var(--amber);font-weight:600}
+  main{flex:1;position:relative;padding:12px;min-height:0}
+  .stage{position:relative;height:100%;min-height:320px;background:var(--sea);
+    border:1px solid var(--line);overflow:hidden}
+  /* 掃描線與四角準星，只做裝飾，不擋滑鼠 */
+  .stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.035) 0 1px,transparent 1px 3px)}
+  .corner{position:absolute;width:18px;height:18px;border:2px solid var(--accent);pointer-events:none}
+  .c1{left:8px;top:8px;border-right:0;border-bottom:0}.c2{right:8px;top:8px;border-left:0;border-bottom:0}
+  .c3{left:8px;bottom:8px;border-right:0;border-top:0}.c4{right:8px;bottom:8px;border-left:0;border-top:0}
+  svg{display:block;width:100%;height:100%}
+  .country{stroke:var(--border);stroke-width:.5;transition:fill .2s}
+  .country.hot:hover,.country.hot.active{stroke:var(--accent);stroke-width:1.6}
+  .country:hover,.country.active{stroke:#5a4a36;stroke-width:1.2}
+  .tip{position:absolute;pointer-events:none;background:rgba(13,15,18,.94);color:var(--ink);
+    border-left:3px solid var(--accent);padding:8px 12px;font-size:14px;line-height:1.5;
+    opacity:0;transform:translateY(4px);transition:opacity .15s,transform .15s;white-space:nowrap;z-index:5}
+  .tip.on{opacity:1;transform:none}
+  .tip .n{font:600 18px/1.2 ui-monospace,Consolas,monospace;color:var(--amber)}
+  .legend{position:absolute;right:14px;bottom:14px;background:rgba(13,15,18,.9);color:var(--ink);
+    padding:10px 12px;border:1px solid var(--line);font-size:12px;line-height:1.7;z-index:4}
+  .legend h2{margin:0 0 4px;font:600 11px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.14em;color:var(--mute)}
+  .legend div{display:flex;align-items:center;gap:8px}
+  .legend i{width:18px;height:12px;display:inline-block;border:1px solid rgba(255,255,255,.15)}
+  footer{padding:6px 20px 10px;font:11px/1.6 ui-monospace,Consolas,monospace;color:var(--mute);
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    color:#5a4a36;font-size:15px;text-align:center;padding:20px}
+  @media (max-width:600px){
+    header{padding:12px 14px 8px} main{padding:8px}
+    .legend{right:8px;bottom:8px;font-size:11px;padding:8px 10px;line-height:1.55}
+    .tip{font-size:13px}
+  }
 </style>
 </head>
 <body>
-    <div class="h1">2026 核武器全球部署</div>
-    <div class="subtitle">Estimated warhead counts by nation · Source: IISS, SIPRI & national reports</div>
-    <div id="map"></div>
-    <div class="legend" id="legend"></div>
-    <div class="tooltip" id="tooltip"></div>
+<header>
+  <span class="tag">CLASSIFIED · 2026</span>
+  <h1>全球核彈頭數量地圖</h1>
+  <div class="meta">資料：<b>SIPRI 年鑑 2025</b>（2025 年 1 月估計，總庫存）｜2026 年數字<b>待 SIPRI 2026 年鑑查證</b>｜滑鼠移到國家（手機點一下）看數量</div>
+</header>
+<main>
+  <div class="stage" id="stage">
+    <svg id="map" viewBox="0 0 960 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="各國核彈頭數量世界地圖"></svg>
+    <span class="corner c1"></span><span class="corner c2"></span><span class="corner c3"></span><span class="corner c4"></span>
+    <div class="legend" id="legend"><h2>核彈頭（枚）</h2></div>
+    <div class="tip" id="tip"></div>
+    <div class="err" id="err">地圖資料載入失敗，請檢查網路後重新整理。</div>
+  </div>
+</main>
+<footer><span>九個擁核國家，其他國家為 0 枚</span><span>v2</span></footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script>
-        // 2026 年估計的核武器數量（單位：枚），按 ISO-3 碼
-        const nuclearData = {
-            "RUS": 6000, "USA": 5500, "CHN": 600, "FRA": 300, "GBR": 225,
-            "PAK": 170, "IND": 165, "ISR": 90, "PRK": 50,
-            "IRN": 0, "DPRK": 50, "INDIA": 165 // 若有需要可擴充
-        };
+<!-- 版本號鎖定，避免 CDN 自動升級後壞掉 -->
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script>
+// 核彈頭數量（枚）：SIPRI 年鑑 2025，2025 年 1 月估計的總庫存。
+// key 是地圖資料（world-atlas）用的 ISO 3166-1 數字代碼，不是 RUS/USA 這種三碼。
+const WARHEADS = {
+  "643": 5459, // 俄羅斯
+  "840": 5177, // 美國
+  "156": 600,  // 中國
+  "250": 290,  // 法國
+  "826": 225,  // 英國
+  "356": 180,  // 印度
+  "586": 170,  // 巴基斯坦
+  "376": 90,   // 以色列
+  "408": 50    // 北韓
+};
 
-        // ISO-3 到中文名稱的映射
-        const countryNamesZh = {
-            "RUS": "俄罗斯", "USA": "美国", "CHN": "中国", "FRA": "法国", "GBR": "英国",
-            "PAK": "巴基斯坦", "IND": "印度", "ISR": "以色列", "PRK": "朝鲜",
-            "IRN": "伊朗", "DDR": "德国"
-        };
+// 數字代碼 → 兩碼國家代碼，給瀏覽器內建的 Intl.DisplayNames 轉成繁體中文國名
+const ID2A2 = {"242":"FJ","834":"TZ","732":"EH","124":"CA","840":"US","398":"KZ","860":"UZ","598":"PG","360":"ID","032":"AR","152":"CL","180":"CD","706":"SO","404":"KE","729":"SD","148":"TD","332":"HT","214":"DO","643":"RU","044":"BS","238":"FK","578":"NO","304":"GL","260":"TF","626":"TL","710":"ZA","426":"LS","484":"MX","858":"UY","076":"BR","068":"BO","604":"PE","170":"CO","591":"PA","188":"CR","558":"NI","340":"HN","222":"SV","320":"GT","084":"BZ","862":"VE","328":"GY","740":"SR","250":"FR","218":"EC","630":"PR","388":"JM","192":"CU","716":"ZW","072":"BW","516":"NA","686":"SN","466":"ML","478":"MR","204":"BJ","562":"NE","566":"NG","120":"CM","768":"TG","288":"GH","384":"CI","324":"GN","624":"GW","430":"LR","694":"SL","854":"BF","140":"CF","178":"CG","266":"GA","226":"GQ","894":"ZM","454":"MW","508":"MZ","748":"SZ","024":"AO","108":"BI","376":"IL","422":"LB","450":"MG","275":"PS","270":"GM","788":"TN","012":"DZ","400":"JO","784":"AE","634":"QA","414":"KW","368":"IQ","512":"OM","548":"VU","116":"KH","764":"TH","418":"LA","104":"MM","704":"VN","408":"KP","410":"KR","496":"MN","356":"IN","050":"BD","064":"BT","524":"NP","586":"PK","004":"AF","762":"TJ","417":"KG","795":"TM","364":"IR","760":"SY","051":"AM","752":"SE","112":"BY","804":"UA","616":"PL","040":"AT","348":"HU","498":"MD","642":"RO","440":"LT","428":"LV","233":"EE","276":"DE","100":"BG","300":"GR","792":"TR","008":"AL","191":"HR","756":"CH","442":"LU","056":"BE","528":"NL","620":"PT","724":"ES","372":"IE","540":"NC","090":"SB","554":"NZ","036":"AU","144":"LK","156":"CN","158":"TW","380":"IT","208":"DK","826":"GB","352":"IS","031":"AZ","268":"GE","608":"PH","458":"MY","096":"BN","705":"SI","246":"FI","703":"SK","203":"CZ","232":"ER","392":"JP","600":"PY","887":"YE","682":"SA","010":"AQ","196":"CY","504":"MA","818":"EG","434":"LY","231":"ET","262":"DJ","800":"UG","646":"RW","070":"BA","807":"MK","688":"RS","499":"ME","780":"TT","728":"SS"};
+// 地圖資料裡沒有數字代碼的三個地區，直接用中文名
+const NO_ID_NAMES = {"N. Cyprus":"北賽普勒斯","Somaliland":"索馬利蘭","Kosovo":"科索沃"};
 
-        // 颜色比例尺：由淺至深的棕色系
-        const colorScale = d3.scaleQuantize()
-            .domain([0, 6500])
-            .range([
-                "#f7f0e4",” #e8d5c5”, “#d8c1a7”, “#c49c6a”, “#8b5a2b”, “#5a3016”
-            ]);
+// 分級：0 另外一色；有核武的國家用門檻分級，數量差距太大（50～5,459），平均切段會讓中、法、印都跟 0 同色
+const BREAKS = [1, 101, 201, 301, 1001];
+const COLORS = ["#e3cfb2", "#c9a173", "#a87445", "#7d4a22", "#4a260c"];
+const LABELS = ["1 – 100", "101 – 200", "201 – 300", "301 – 1,000", "1,001 以上"];
+const color = n => {
+  if (!n) return getComputedStyle(document.documentElement).getPropertyValue("--land0").trim();
+  let i = 0; while (i < BREAKS.length - 1 && n >= BREAKS[i + 1]) i++;
+  return COLORS[i];
+};
 
-        const tooltip = d3.select("#tooltip")
-            .style("opacity", 0)
-            .style("pointer-events", "none")
-            .style("position", "absolute")
-            .style("background", "#5b3a24")
-            .style("color", "#fff")
-            .style("padding", "10px 12px")
-            .style("border-radius", "6px")
-            .style("box-shadow", "0 4 12 rgba(0,0,0,.4)")
-            .style("font-size", "13px");
+let zhName;
+try { const dn = new Intl.DisplayNames(["zh-Hant-TW"], {type: "region"}); zhName = a2 => dn.of(a2); }
+catch (e) { zhName = null; }
+const nameOf = f => {
+  const a2 = ID2A2[f.id];
+  if (a2 && zhName) return zhName(a2);
+  return NO_ID_NAMES[f.properties.name] || f.properties.name;
+};
 
-        let svg, projection, path;
+// 圖例
+const legend = document.getElementById("legend");
+[["0（無核武）", color(0)], ...LABELS.map((l, i) => [l, COLORS[i]])].forEach(([l, c]) => {
+  const d = document.createElement("div");
+  d.innerHTML = `<i style="background:${c}"></i>${l}`;
+  legend.appendChild(d);
+});
 
-        // 建立 SVG 並適應視窗大小
-        const initMap = () => {
-            const width = window.innerWidth;
-            const height = window.innerHeight - 80;
-            svg = d3.select("#map")
-                .append("svg")
-                .attr("width", width)
-                .attr("height", height)
-                .style("background", "#2d1a0f");
+const stage = document.getElementById("stage");
+const tip = document.getElementById("tip");
+const svg = d3.select("#map");
+// 固定 viewBox 讓 SVG 自己縮放，不必在視窗縮放時重畫（舊版會一直疊新地圖）
+const projection = d3.geoNaturalEarth1();
+const path = d3.geoPath(projection);
 
-            projection = d3.geoMercator();
-            path = d3.geoPath().projection(projection);
+function showTip(event, f) {
+  const n = WARHEADS[f.id] || 0;
+  tip.innerHTML = `<div>${nameOf(f)}</div><div class="n">${n ? n.toLocaleString("zh-TW") + " 枚" : "0 枚（無核武）"}</div>`;
+  const r = stage.getBoundingClientRect();
+  let x = event.clientX - r.left + 14, y = event.clientY - r.top + 14;
+  tip.classList.add("on");
+  // 靠右或靠下時往內翻，避免在手機上跑出畫面
+  if (x + tip.offsetWidth > r.width - 8) x = event.clientX - r.left - tip.offsetWidth - 14;
+  if (y + tip.offsetHeight > r.height - 8) y = event.clientY - r.top - tip.offsetHeight - 14;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
 
-            d3.json("https://cdn.jsdelivr.net/npm/world-atlas@1.1.4/dist/world-110m.json")
-                .then(world => {
-                    projection.fitSize([width, height], world);
+d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-110m.json").then(world => {
+  // world-atlas 是 TopoJSON，要先轉成 GeoJSON 才能畫；南極洲拿掉，留空間給有人的地方
+  const land = topojson.feature(world, world.objects.countries);
+  land.features = land.features.filter(f => f.id !== "010");
+  projection.fitExtent([[10, 10], [950, 490]], land);
 
-                    svg.selectAll("path")
-                        .data(world.objects.countries.geometries)
-                        .enter()
-                        .append("path")
-                        .attr("d", path)
-                        .attr("fill", d => {
-                            const iso3 = d.id;
-                            const warheads = nuclearData[iso3] || 0;
-                            return colorScale(warheads);
-                        })
-                        .attr("stroke", "#3e271e")
-                        .attr("stroke-width", 0.5)
-                        .on("mouseover", function(event, d) {
-                            const iso3 = d.id;
-                            const warheads = nuclearData[iso3] || 0;
-                            const nameZh = countryNamesZh[iso3] || iso3;
-                            tooltip.html(`<strong>${nameZh}</strong><br/>核彈數量: ${warheads} 枚`)
-                                .style("left", (event.pageX + 10) + "px")
-                                .style("top", (event.pageY - 28) + "px")
-                                .style("opacity", 1);
-                            d3.select(this).attr("stroke", "#ffb400").attr("stroke-width", 1.5);
-                        })
-                        .on("mouseout", function(d) {
-                            tooltip.style("opacity", 0);
-                            d3.select(this).attr("stroke", "#3e271e").attr("stroke-width", 0.5);
-                        });
-
-            // 右下角圖例
-            const legend = d3.select("#legend");
-            const intervals = [
-                [0, 1000, "0 - 1,000 枚"],
-                [1000, 2000, "1,000 - 2,000 枚"],
-                [2000, 3000, "2,000 - 3,000 枚"],
-                [3000, 4000, "3,000 - 4,000 枚"],
-                [4000, 5000, "4,000 - 5,000 枚"],
-                [5000, 6500, "5,000 - 6,500 枚"]
-            ];
-            legend.selectAll("div").data(intervals).enter().append("div")
-                .style("display", "flex")
-                .style("align-items", "center")
-                .style("margin-bottom", "2px")
-                .html(d => `<span style="width: 18px; height: 14px; background: ${colorScale(d[0])}; display: inline-block; margin-right: 6px; border-radius: 3px;"></span>${d[2]}`);
-        };
-
-        // 視窗大小變更時重新調整
-        window.addEventListener("resize", initMap);
-        initMap();
-    </script>
+  svg.selectAll("path").data(land.features).join("path")
+    .attr("class", f => "country" + (WARHEADS[f.id] ? " hot" : ""))
+    .attr("d", path)
+    .attr("fill", f => color(WARHEADS[f.id]))
+    .on("pointermove", showTip)
+    .on("pointerleave", () => tip.classList.remove("on"))
+    .on("click", function (event, f) {          // 手機沒有滑鼠移過去，用點一下顯示
+      svg.selectAll(".active").classed("active", false);
+      d3.select(this).classed("active", true).raise();
+      showTip(event, f);
+    });
+}).catch(() => { document.getElementById("err").style.display = "flex"; });
+</script>
 </body>
 </html>
