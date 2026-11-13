@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2026 Nuclear Weapons Global Map</title>
+<style>
+    body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2d1a0f; color: #e8d5c5; overflow: hidden; }
+    #map { width: 100vw; height: 100vh; position: relative; }
+    .legend { position: absolute; bottom: 20px; right: 20px; background: rgba(45,26,15,0.85); padding: 14px 18px; border-radius: 8px; font-size: 12px; line-height: 1.6; backdrop-filter: blur(8px); }
+    .legend div { margin-bottom: 4px; display: flex; align-items: center; }
+    .legend span { width: 18px; height: 14px; flex-shrink: 0; margin-right: 8px; border-radius: 3px; }
+    .tooltip { position: absolute; width: 150px; background: #5b3a24; color: #fff; padding: 10px 12px; border-radius: 6px; pointer-events: none; font-size: 13px; line-height: 1.4; box-shadow: 0 4 12 rgba(0,0,0,.4); opacity: 0; transition: opacity .25s ease; z-index: 1000; }
+    .h1 { font-size: 28px; color: #c49c6a; text-align: center; margin: 20px 0 10px; letter-spacing: 3px; text-transform: uppercase; }
+    .subtitle { font-size: 14px; color: #a08060; text-align: center; margin-bottom: 30px; }
+</style>
+</head>
+<body>
+    <div class="h1">2026 核武器全球部署</div>
+    <div class="subtitle">Estimated warhead counts by nation · Source: IISS, SIPRI & national reports</div>
+    <div id="map"></div>
+    <div class="legend" id="legend"></div>
+    <div class="tooltip" id="tooltip"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script>
+        // 2026 年估計的核武器數量（單位：枚），按 ISO-3 碼
+        const nuclearData = {
+            "RUS": 6000, "USA": 5500, "CHN": 600, "FRA": 300, "GBR": 225,
+            "PAK": 170, "IND": 165, "ISR": 90, "PRK": 50,
+            "IRN": 0, "DPRK": 50, "INDIA": 165 // 若有需要可擴充
+        };
+
+        // ISO-3 到中文名稱的映射
+        const countryNamesZh = {
+            "RUS": "俄罗斯", "USA": "美国", "CHN": "中国", "FRA": "法国", "GBR": "英国",
+            "PAK": "巴基斯坦", "IND": "印度", "ISR": "以色列", "PRK": "朝鲜",
+            "IRN": "伊朗", "DDR": "德国"
+        };
+
+        // 颜色比例尺：由淺至深的棕色系
+        const colorScale = d3.scaleQuantize()
+            .domain([0, 6500])
+            .range([
+                "#f7f0e4",” #e8d5c5”, “#d8c1a7”, “#c49c6a”, “#8b5a2b”, “#5a3016”
+            ]);
+
+        const tooltip = d3.select("#tooltip")
+            .style("opacity", 0)
+            .style("pointer-events", "none")
+            .style("position", "absolute")
+            .style("background", "#5b3a24")
+            .style("color", "#fff")
+            .style("padding", "10px 12px")
+            .style("border-radius", "6px")
+            .style("box-shadow", "0 4 12 rgba(0,0,0,.4)")
+            .style("font-size", "13px");
+
+        let svg, projection, path;
+
+        // 建立 SVG 並適應視窗大小
+        const initMap = () => {
+            const width = window.innerWidth;
+            const height = window.innerHeight - 80;
+            svg = d3.select("#map")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .style("background", "#2d1a0f");
+
+            projection = d3.geoMercator();
+            path = d3.geoPath().projection(projection);
+
+            d3.json("https://cdn.jsdelivr.net/npm/world-atlas@1.1.4/dist/world-110m.json")
+                .then(world => {
+                    projection.fitSize([width, height], world);
+
+                    svg.selectAll("path")
+                        .data(world.objects.countries.geometries)
+                        .enter()
+                        .append("path")
+                        .attr("d", path)
+                        .attr("fill", d => {
+                            const iso3 = d.id;
+                            const warheads = nuclearData[iso3] || 0;
+                            return colorScale(warheads);
+                        })
+                        .attr("stroke", "#3e271e")
+                        .attr("stroke-width", 0.5)
+                        .on("mouseover", function(event, d) {
+                            const iso3 = d.id;
+                            const warheads = nuclearData[iso3] || 0;
+                            const nameZh = countryNamesZh[iso3] || iso3;
+                            tooltip.html(`<strong>${nameZh}</strong><br/>核彈數量: ${warheads} 枚`)
+                                .style("left", (event.pageX + 10) + "px")
+                                .style("top", (event.pageY - 28) + "px")
+                                .style("opacity", 1);
+                            d3.select(this).attr("stroke", "#ffb400").attr("stroke-width", 1.5);
+                        })
+                        .on("mouseout", function(d) {
+                            tooltip.style("opacity", 0);
+                            d3.select(this).attr("stroke", "#3e271e").attr("stroke-width", 0.5);
+                        });
+
+            // 右下角圖例
+            const legend = d3.select("#legend");
+            const intervals = [
+                [0, 1000, "0 - 1,000 枚"],
+                [1000, 2000, "1,000 - 2,000 枚"],
+                [2000, 3000, "2,000 - 3,000 枚"],
+                [3000, 4000, "3,000 - 4,000 枚"],
+                [4000, 5000, "4,000 - 5,000 枚"],
+                [5000, 6500, "5,000 - 6,500 枚"]
+            ];
+            legend.selectAll("div").data(intervals).enter().append("div")
+                .style("display", "flex")
+                .style("align-items", "center")
+                .style("margin-bottom", "2px")
+                .html(d => `<span style="width: 18px; height: 14px; background: ${colorScale(d[0])}; display: inline-block; margin-right: 6px; border-radius: 3px;"></span>${d[2]}`);
+        };
+
+        // 視窗大小變更時重新調整
+        window.addEventListener("resize", initMap);
+        initMap();
+    </script>
+</body>
+</html>
